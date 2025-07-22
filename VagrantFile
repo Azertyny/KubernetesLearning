@@ -1,0 +1,90 @@
+
+# Vagrant.configure(2) do |config|
+# Use the generic RHEL 9 box
+# config.vm.box = "generic/rhel9"
+# config.vm.box_url = "generic/rhel9"
+#   # Set the VM boot timeout to 300 seconds
+#   config.vm.boot_timeout = 300
+
+#   # Set the SSH port to 60022 for this VM
+#   qe.ssh_port = "10022"
+#   end
+# end
+
+Vagrant.configure(2) do |config|
+
+	# before you must install these plugins to speed up vagrant provisionning
+  # vagrant plugin install vagrant-faster
+  # vagrant plugin install vagrant-cachier
+
+  # config.cache.auto_detect = true
+	# Set some variables
+  etcHosts = ""
+  k0s = ""
+
+  case ARGV[0]
+    when "provision", "up"
+
+    print "Do you want to install the k0s (yes/no) ?\n"
+    k0s = STDIN.gets.chomp
+    print "\n"
+
+  end
+
+	# some settings for common server (not for haproxy)
+  # common = <<-SHELL
+  # sudo apt update -qq 2>&1 >/dev/null
+  # sudo apt install -y -qq unzip iftop curl software-properties-common git vim tree net-tools telnet git 2>&1 >/dev/null
+  # sed -i 's/ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/g' /etc/ssh/sshd_config
+  # sudo systemctl restart sshd
+  # SHELL
+
+  
+  # Use the generic RHEL 9 box
+  config.vm.box = "generic/rhel9"
+  config.vm.box_url = "generic/rhel9"
+
+	# set servers list and their parameters
+	NODES = [
+  	{ :hostname => "k0s1", :ip => "192.168.144.10", :cpus => 4, :mem => 4096, :type => "k0s" }
+  	#{ :hostname => "k0s1", :ip => "192.168.144.10", :mem => 4096, :type => "k0s" }
+	]
+
+	# define /etc/hosts for all servers
+  NODES.each do |node|
+			etcHosts += "echo '" + node[:ip] + "   " + node[:hostname] + "'>> /etc/hosts" + "\n"
+  end #end NODES
+
+	# run installation
+  NODES.each do |node|
+    config.vm.define node[:hostname] do |cfg|
+			cfg.vm.hostname = node[:hostname]
+      cfg.vm.network "private_network", ip: node[:ip]
+      # Use the QEMU provider
+      config.vm.provider "qemu" do |qe|
+        qe.memory = 2048
+        qe.cpus   = 2
+        qe.machine = "virt"
+        qe.ssh_port = "10024"
+        qe.accelerator = "hvf"
+        qe.cpu = "cortex-a72"
+      end #end provider
+			
+			#for all
+			cfg.vm.provision :shell, :path => "install_azertyny.sh"
+      cfg.vm.provision :shell, :inline => etcHosts
+			# cfg.vm.provision :shell, :inline => common
+			#cfg.vm.provision :shell, :inline => docker
+
+      if node[:type] == "k0s"
+        if k0s == "yes"
+          cfg.vm.provision :shell, :path => "install_k0s.sh"
+    	end
+      end
+
+    end # end config
+  end # end nodes
+end 
+
+
+
