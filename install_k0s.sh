@@ -51,6 +51,10 @@ install_tooling(){
   apt-get install bash-completion
   echo "source <(kubectl completion bash)" >> ~/.bashrc
 
+  # TODO : Added in video 008
+  sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+  sudo chmod +x /usr/local/bin/yq
+
 }
 
 # Let's Go !! #################################################
